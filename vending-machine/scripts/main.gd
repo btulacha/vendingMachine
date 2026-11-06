@@ -1,6 +1,6 @@
 extends Control
 
-const PRICE: int = 15
+const PRICE: int = 2
 const DESIGN_SIZE := Vector2(540.0, 960.0)
 const PACKAGE_TEXTURES: Array[Texture2D] = [
 	preload("res://assets/package_armor.png"),
@@ -12,6 +12,33 @@ const PACKAGE_TEXTURES: Array[Texture2D] = [
 	preload("res://assets/package_spellbook.png"),
 	preload("res://assets/package_weapon.png"),
 ]
+const SWORD_ATLAS_PATH: String = "res://assets/swords.png"
+const SWORD_REGIONS: Array[Rect2] = [
+	Rect2(53.0, 251.0, 128.0, 314.0),
+	Rect2(252.0, 210.0, 132.0, 355.0),
+	Rect2(444.0, 179.0, 152.0, 386.0),
+	Rect2(651.0, 153.0, 165.0, 412.0),
+	Rect2(859.0, 124.0, 178.0, 441.0),
+	Rect2(1068.0, 110.0, 189.0, 455.0),
+	Rect2(1287.0, 82.0, 177.0, 483.0),
+	Rect2(1497.0, 61.0, 185.0, 508.0),
+	Rect2(1705.0, 39.0, 199.0, 530.0),
+	Rect2(1897.0, 0.0, 261.0, 569.0),
+]
+const SWORD_NAMES: Array[String] = [
+	"Zardzewiały miecz",
+	"Krótki miecz",
+	"Stalowy miecz",
+	"Miecz gwardzisty",
+	"Miecz rycerski",
+	"Szafirowy miecz",
+	"Ostrze błękitu",
+	"Ostrze ametystu",
+	"Ostrze rubinu",
+	"Miecz legendarny",
+]
+const SWORD_DROP_WEIGHTS: Array[int] = [30, 24, 18, 12, 7, 4, 2, 1, 1, 1]
+const SWORD_PACKAGE_INDEX: int = 7
 const SHELF_COLLISION_LAYER: int = 1
 const TRAY_COLLISION_LAYER: int = 2
 const PACKAGE_COLLISION_LAYER: int = 4
@@ -27,21 +54,22 @@ const PACKAGE_INFO: Array[Dictionary] = [
 	{"name": "Paczka 08", "contents": "Miecz"},
 ]
 const SLOT_POSITIONS: Array[Vector2] = [
-	Vector2(170.0, 300.0),
-	Vector2(305.0, 300.0),
-	Vector2(170.0, 442.0),
-	Vector2(305.0, 442.0),
-	Vector2(170.0, 579.0),
-	Vector2(305.0, 579.0),
-	Vector2(170.0, 710.0),
-	Vector2(305.0, 710.0),
+	Vector2(170.0, 294.0),
+	Vector2(305.0, 294.0),
+	Vector2(170.0, 436.0),
+	Vector2(305.0, 436.0),
+	Vector2(170.0, 573.0),
+	Vector2(305.0, 573.0),
+	Vector2(170.0, 704.0),
+	Vector2(305.0, 704.0),
 ]
 const SHELF_TOPS: Array[float] = [330.0, 472.0, 609.0, 740.0]
-const PACKAGE_SCALE := Vector2(0.055, 0.055)
-const PACKAGE_COLLISION_SIZE := Vector2(38.0, 60.0)
+const PACKAGE_SCALE := Vector2(0.066, 0.066)
+const PACKAGE_COLLISION_SIZE := Vector2(45.6, 72.0)
 
 @onready var physics_world: Node2D = $PhysicsWorld
 
+var sword_atlas: Texture2D
 var status_label: Label
 var balance_label: Label
 var coin_button: Button
@@ -51,9 +79,18 @@ var selected_index: int = -1
 var pending_index: int = -1
 var coins_inserted: int = 0
 var delivering: bool = false
+var opening_package: bool = false
+var zoom_ready: bool = false
+var zoom_view: TextureRect
+var open_prompt: Label
+var prompt_tween: Tween
 
 
 func _ready() -> void:
+	randomize()
+	sword_atlas = ResourceLoader.load(SWORD_ATLAS_PATH) as Texture2D
+	if sword_atlas == null:
+		push_error("Nie udało się załadować arkusza mieczy: %s" % SWORD_ATLAS_PATH)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	get_viewport().physics_object_picking = true
 	_create_collision_surfaces()
@@ -170,8 +207,8 @@ func _on_package_input_event(
 		return
 
 	if index == pending_index:
-		if not delivering:
-			_show_contents(index)
+		if not delivering and not opening_package:
+			await _zoom_package_to_front(index)
 		return
 	if delivering or pending_index >= 0 or not package_available[index]:
 		return
@@ -208,6 +245,86 @@ func _physics_process(_delta: float) -> void:
 	if delivering and package_bodies[pending_index].sleeping:
 		delivering = false
 		_update_hud()
+
+
+func _zoom_package_to_front(index: int) -> void:
+	opening_package = true
+	zoom_ready = false
+	var package: RigidBody2D = package_bodies[index]
+	package.freeze = true
+	package.input_pickable = false
+	package.collision_layer = 0
+	package.collision_mask = 0
+	package.visible = false
+	_update_hud()
+
+	var texture_size: Vector2 = PACKAGE_TEXTURES[index].get_size() * PACKAGE_SCALE
+	zoom_view = TextureRect.new()
+	zoom_view.texture = PACKAGE_TEXTURES[index]
+	zoom_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	zoom_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	zoom_view.mouse_filter = Control.MOUSE_FILTER_STOP
+	zoom_view.size = texture_size
+	zoom_view.position = package.global_position - texture_size * 0.5
+	zoom_view.gui_input.connect(_on_zoom_view_input.bind(index))
+	add_child(zoom_view)
+
+	var max_zoom_size := Vector2(size.x * 0.72, size.y * 0.3)
+	var zoom_factor: float = minf(
+		max_zoom_size.x / texture_size.x,
+		max_zoom_size.y / texture_size.y
+	)
+	var target_size: Vector2 = texture_size * zoom_factor
+	var target_position: Vector2 = size * 0.5 - target_size * 0.5
+	var zoom_tween := create_tween()
+	zoom_tween.set_parallel(true)
+	zoom_tween.set_trans(Tween.TRANS_BACK)
+	zoom_tween.set_ease(Tween.EASE_OUT)
+	zoom_tween.tween_property(zoom_view, "position", target_position, 0.55)
+	zoom_tween.tween_property(zoom_view, "size", target_size, 0.55)
+	await zoom_tween.finished
+
+	open_prompt = Label.new()
+	open_prompt.text = ">> OPEN <<"
+	open_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	open_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	open_prompt.position = Vector2(target_position.x, target_position.y + target_size.y + 16.0)
+	open_prompt.size = Vector2(target_size.x, 52.0)
+	open_prompt.mouse_filter = Control.MOUSE_FILTER_STOP
+	open_prompt.add_theme_color_override("font_color", Color("#ffe29a"))
+	open_prompt.add_theme_color_override("font_shadow_color", Color("#35170b"))
+	open_prompt.add_theme_constant_override("shadow_offset_x", 2)
+	open_prompt.add_theme_constant_override("shadow_offset_y", 2)
+	open_prompt.add_theme_font_size_override("font_size", 28)
+	open_prompt.gui_input.connect(_on_zoom_view_input.bind(index))
+	add_child(open_prompt)
+
+	zoom_ready = true
+	_update_hud()
+	prompt_tween = create_tween().set_loops()
+	prompt_tween.tween_property(open_prompt, "modulate:a", 0.35, 0.55)
+	prompt_tween.tween_property(open_prompt, "modulate:a", 1.0, 0.55)
+
+
+func _on_zoom_view_input(event: InputEvent, index: int) -> void:
+	if not zoom_ready or index != pending_index:
+		return
+	var pressed := false
+	if event is InputEventMouseButton:
+		pressed = event.button_index == MOUSE_BUTTON_LEFT and event.pressed
+	elif event is InputEventScreenTouch:
+		pressed = event.pressed
+	if pressed:
+		_open_zoomed_package(index)
+
+
+func _open_zoomed_package(index: int) -> void:
+	zoom_ready = false
+	if prompt_tween != null:
+		prompt_tween.kill()
+	open_prompt.queue_free()
+	zoom_view.queue_free()
+	_show_contents(index)
 
 
 func _show_contents(index: int) -> void:
@@ -249,8 +366,26 @@ func _show_contents(index: int) -> void:
 	title.add_theme_font_size_override("font_size", 20)
 	column.add_child(title)
 
+	var reward_name := str(PACKAGE_INFO[index]["contents"])
+	if index == SWORD_PACKAGE_INDEX and sword_atlas != null:
+		var sword_index := _roll_sword_index()
+		var sword_texture := AtlasTexture.new()
+		sword_texture.atlas = sword_atlas
+		sword_texture.region = SWORD_REGIONS[sword_index]
+
+		var sword_icon := TextureRect.new()
+		sword_icon.texture = sword_texture
+		sword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		sword_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sword_icon.custom_minimum_size = SWORD_REGIONS[sword_index].size * 0.28
+		sword_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		sword_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(sword_icon)
+		reward_name = SWORD_NAMES[sword_index]
+
 	var contents := Label.new()
-	contents.text = str(PACKAGE_INFO[index]["contents"])
+	contents.text = reward_name
 	contents.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	contents.add_theme_color_override("font_color", Color("#fff3dc"))
 	contents.add_theme_font_size_override("font_size", 26)
@@ -265,6 +400,16 @@ func _show_contents(index: int) -> void:
 	column.add_child(close_button)
 
 
+func _roll_sword_index() -> int:
+	var roll := randi_range(1, 100)
+	var cumulative_weight: int = 0
+	for index in SWORD_DROP_WEIGHTS.size():
+		cumulative_weight += SWORD_DROP_WEIGHTS[index]
+		if roll <= cumulative_weight:
+			return index
+	return SWORD_DROP_WEIGHTS.size() - 1
+
+
 func _close_contents(overlay: ColorRect) -> void:
 	overlay.queue_free()
 	var package: RigidBody2D = package_bodies[pending_index]
@@ -274,6 +419,8 @@ func _close_contents(overlay: ColorRect) -> void:
 	package.collision_mask = 0
 	package.freeze = true
 	pending_index = -1
+	opening_package = false
+	zoom_ready = false
 	_update_hud()
 
 
@@ -285,6 +432,8 @@ func _update_hud() -> void:
 
 	if delivering:
 		status_label.text = "Paczka w drodze do podajnika"
+	elif opening_package:
+		status_label.text = "Kliknij paczkę, aby ją otworzyć" if zoom_ready else "Paczka zbliża się..."
 	elif pending_index >= 0:
 		status_label.text = "Paczka czeka w dolnym podajniku"
 	elif selected_index >= 0:
