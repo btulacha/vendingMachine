@@ -10,9 +10,18 @@ config_version=5
 
 [application]
 
-config/name="VendingMachine"
+config/name="vendingMachine"
+run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=540
+window/size/viewport_height=960
+window/size/window_width_override=432
+window/size/window_height_override=768
+window/stretch/mode="canvas_items"
 
 [physics]
 

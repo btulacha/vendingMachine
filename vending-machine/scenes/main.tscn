@@ -1,0 +1,89 @@
+[gd_scene format=3 uid="uid://oawcteqmh8b4"]
+
+[ext_resource type="Texture2D" uid="uid://druevwpxo36ih" path="res://assets/background.png" id="1_background"]
+[ext_resource type="Script" uid="uid://dxf711u5b8fdc" path="res://scripts/main.gd" id="2_main"]
+[ext_resource type="Texture2D" uid="uid://pa7p7dei5km" path="res://assets/vendingMachineBack.png" id="3_tbgi4"]
+[ext_resource type="Texture2D" uid="uid://py7cmspexksc" path="res://assets/shelve.png" id="4_tefeu"]
+[ext_resource type="Texture2D" uid="uid://bsjnqwmguv6j4" path="res://assets/vendingMachineFront.png" id="5_o6xl0"]
+
+[node name="Main" type="Control" unique_id=11833063]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_main")
+
+[node name="Background" type="TextureRect" parent="." unique_id=1282534779]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("1_background")
+expand_mode = 1
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=811922102]
+layout_mode = 0
+offset_left = 63.0
+offset_top = 165.0
+offset_right = 417.0
+offset_bottom = 779.0
+mouse_filter = 2
+texture = ExtResource("3_tbgi4")
+expand_mode = 1
+
+[node name="Shelve" type="TextureRect" parent="." unique_id=1957131620]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 330.0
+offset_right = 375.0
+offset_bottom = 350.0
+mouse_filter = 2
+texture = ExtResource("4_tefeu")
+expand_mode = 1
+
+[node name="Shelve2" type="TextureRect" parent="." unique_id=1649253239]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 472.0
+offset_right = 375.0
+offset_bottom = 492.0
+mouse_filter = 2
+texture = ExtResource("4_tefeu")
+expand_mode = 1
+
+[node name="Shelve3" type="TextureRect" parent="." unique_id=1118644270]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 609.0
+offset_right = 375.0
+offset_bottom = 629.0
+mouse_filter = 2
+texture = ExtResource("4_tefeu")
+expand_mode = 1
+
+[node name="Shelve4" type="TextureRect" parent="." unique_id=1477534987]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 740.0
+offset_right = 375.0
+offset_bottom = 760.0
+mouse_filter = 2
+texture = ExtResource("4_tefeu")
+expand_mode = 1
+
+[node name="PhysicsWorld" type="Node2D" parent="." unique_id=1983465117]
+
+[node name="VendingMachineFront" type="TextureRect" parent="." unique_id=1782664742]
+layout_mode = 0
+offset_top = 85.0
+offset_right = 548.0
+offset_bottom = 991.0
+mouse_filter = 2
+texture = ExtResource("5_o6xl0")
+expand_mode = 1
