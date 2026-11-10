@@ -1,5 +1,6 @@
 extends Control
 
+const InventoryStorage = preload("res://scripts/inventory_storage.gd")
 const PRICE: int = 2
 const DESIGN_SIZE := Vector2(540.0, 960.0)
 const PACKAGE_TEXTURES: Array[Texture2D] = [
@@ -96,6 +97,7 @@ var zoom_ready: bool = false
 var zoom_view: TextureRect
 var open_prompt: Label
 var prompt_tween: Tween
+var inventory_storage
 var inventory_page: Control
 var inventory_back_button: Button
 var inventory_title: Label
@@ -117,6 +119,8 @@ var inventory_transition: Tween
 
 func _ready() -> void:
 	randomize()
+	inventory_storage = InventoryStorage.new()
+	inventory_items = inventory_storage.load_inventory()
 	sword_atlas = ResourceLoader.load(SWORD_ATLAS_PATH) as Texture2D
 	if sword_atlas == null:
 		push_error("Nie udało się załadować arkusza mieczy: %s" % SWORD_ATLAS_PATH)
@@ -361,6 +365,7 @@ func _add_inventory_sword(sword_index: int) -> void:
 		if int(stack["sword_index"]) == sword_index and int(stack["category_index"]) == category_index:
 			stack["quantity"] = int(stack["quantity"]) + 1
 			inventory_items[stack_index] = stack
+			_save_inventory()
 			_refresh_inventory_page()
 			return
 	inventory_items.append({
@@ -368,7 +373,14 @@ func _add_inventory_sword(sword_index: int) -> void:
 		"category_index": category_index,
 		"quantity": 1,
 	})
+	_save_inventory()
 	_refresh_inventory_page()
+
+
+func _save_inventory() -> void:
+	var save_error: Error = inventory_storage.save_inventory(inventory_items)
+	if save_error != OK:
+		push_error("Nie udało się zapisać ekwipunku: %s" % error_string(save_error))
 
 
 func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
