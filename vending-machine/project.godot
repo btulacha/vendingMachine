@@ -22,6 +22,7 @@ window/size/viewport_height=960
 window/size/window_width_override=432
 window/size/window_height_override=768
 window/stretch/mode="canvas_items"
+window/handheld/orientation=1
 
 [physics]
 
@@ -32,3 +33,4 @@ window/stretch/mode="canvas_items"
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
