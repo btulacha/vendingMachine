@@ -73,6 +73,7 @@ var sword_atlas: Texture2D
 var status_label: Label
 var balance_label: Label
 var coin_button: Button
+var tray_pickup_button: Button
 var package_bodies: Array[RigidBody2D] = []
 var package_available: Array[bool] = []
 var selected_index: int = -1
@@ -179,6 +180,18 @@ func _create_interface() -> void:
 	_apply_button_style(coin_button, Color("#c78a35"))
 	add_child(coin_button)
 
+	tray_pickup_button = Button.new()
+	tray_pickup_button.name = "TrayPickupButton"
+	tray_pickup_button.focus_mode = Control.FOCUS_NONE
+	tray_pickup_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tray_pickup_button.size = Vector2(76.0, 100.0)
+	tray_pickup_button.visible = false
+	tray_pickup_button.pressed.connect(_on_tray_pickup_pressed)
+	var empty_style := StyleBoxEmpty.new()
+	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		tray_pickup_button.add_theme_stylebox_override(state, empty_style)
+	add_child(tray_pickup_button)
+
 func _layout_controls() -> void:
 	_set_reference_rect(status_label, Vector2(14.0, 14.0), Vector2(370.0, 38.0))
 	_set_reference_rect(balance_label, Vector2(412.0, 408.0), Vector2(58.0, 34.0))
@@ -207,6 +220,10 @@ func _on_package_input_event(
 		return
 
 	if index == pending_index:
+		var pending_package: RigidBody2D = package_bodies[index]
+		if delivering and _has_reached_tray(pending_package):
+			delivering = false
+			_update_hud()
 		if not delivering and not opening_package:
 			await _zoom_package_to_front(index)
 		return
@@ -227,6 +244,12 @@ func _on_coin_pressed() -> void:
 		_update_hud()
 
 
+func _on_tray_pickup_pressed() -> void:
+	if pending_index < 0 or delivering or opening_package:
+		return
+	await _zoom_package_to_front(pending_index)
+
+
 func _begin_delivery() -> void:
 	pending_index = selected_index
 	selected_index = -1
@@ -234,6 +257,9 @@ func _begin_delivery() -> void:
 	delivering = true
 	package_available[pending_index] = false
 	var package: RigidBody2D = package_bodies[pending_index]
+	package.z_as_relative = true
+	package.z_index = 0
+	physics_world.move_child(package, physics_world.get_child_count() - 1)
 	package.collision_mask = TRAY_COLLISION_LAYER
 	package.sleeping = false
 	var horizontal_impulse: float = 24.0 if package.position.x < 270.0 else -24.0
@@ -242,9 +268,18 @@ func _begin_delivery() -> void:
 	_update_hud()
 
 func _physics_process(_delta: float) -> void:
-	if delivering and package_bodies[pending_index].sleeping:
+	if pending_index < 0:
+		return
+	var pending_package: RigidBody2D = package_bodies[pending_index]
+	tray_pickup_button.position = pending_package.global_position - tray_pickup_button.size * 0.5
+	if delivering and _has_reached_tray(pending_package):
 		delivering = false
 		_update_hud()
+
+
+func _has_reached_tray(package: RigidBody2D) -> bool:
+	var resting_y: float = TRAY_FLOOR_Y - PACKAGE_COLLISION_SIZE.y * 0.5
+	return package.sleeping or package.global_position.y >= resting_y - 4.0
 
 
 func _zoom_package_to_front(index: int) -> void:
@@ -442,6 +477,7 @@ func _create_reveal_circle(parent: Node, color: Color) -> Polygon2D:
 
 func _close_contents(overlay: ColorRect, package_index: int) -> void:
 	overlay.queue_free()
+	tray_pickup_button.visible = false
 	var package: RigidBody2D = package_bodies[package_index]
 	package.visible = false
 	package.input_pickable = false
@@ -457,6 +493,7 @@ func _close_contents(overlay: ColorRect, package_index: int) -> void:
 func _update_hud() -> void:
 	balance_label.text = "%d/%d" % [coins_inserted, PRICE]
 	coin_button.disabled = selected_index < 0 or delivering or pending_index >= 0
+	tray_pickup_button.visible = pending_index >= 0 and not delivering and not opening_package
 	for index in package_bodies.size():
 		package_bodies[index].modulate = Color("#ffd98c") if index == selected_index else Color.WHITE
 
