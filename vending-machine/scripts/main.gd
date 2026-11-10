@@ -37,6 +37,17 @@ const SWORD_NAMES: Array[String] = [
 	"Ostrze rubinu",
 	"Miecz legendarny",
 ]
+const INVENTORY_CATEGORY_NAMES: Array[String] = [
+	"Wszystkie",
+	"Zbroja",
+	"Artefakty",
+	"Klejnoty",
+	"Rycerze",
+	"Zwierzaki",
+	"Mikstury",
+	"Księgi",
+	"Broń",
+]
 const SWORD_DROP_WEIGHTS: Array[int] = [30, 24, 18, 12, 7, 4, 2, 1, 1, 1]
 const SWORD_PACKAGE_INDEX: int = 7
 const SHELF_COLLISION_LAYER: int = 1
@@ -85,6 +96,23 @@ var zoom_ready: bool = false
 var zoom_view: TextureRect
 var open_prompt: Label
 var prompt_tween: Tween
+var inventory_page: Control
+var inventory_back_button: Button
+var inventory_title: Label
+var inventory_count_label: Label
+var inventory_empty_label: Label
+var inventory_tabs_scroll: ScrollContainer
+var inventory_tabs_row: HBoxContainer
+var inventory_scroll: ScrollContainer
+var inventory_grid: GridContainer
+var inventory_tab_group: ButtonGroup
+var inventory_tab_buttons: Array[Button] = []
+var inventory_items: Array[Dictionary] = []
+var selected_inventory_category: int = 0
+var inventory_open: bool = false
+var swipe_tracking: bool = false
+var swipe_start_position := Vector2.ZERO
+var inventory_transition: Tween
 
 
 func _ready() -> void:
@@ -97,6 +125,7 @@ func _ready() -> void:
 	_create_collision_surfaces()
 	_create_packages()
 	_create_interface()
+	_create_inventory_page()
 	_layout_controls()
 	_update_hud()
 	get_viewport().size_changed.connect(_layout_controls)
@@ -192,10 +221,294 @@ func _create_interface() -> void:
 		tray_pickup_button.add_theme_stylebox_override(state, empty_style)
 	add_child(tray_pickup_button)
 
+
+func _create_inventory_page() -> void:
+	inventory_page = Control.new()
+	inventory_page.name = "InventoryPage"
+	inventory_page.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	inventory_page.size = size
+	inventory_page.position = Vector2(size.x, 0.0)
+	inventory_page.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(inventory_page)
+
+	var background := ColorRect.new()
+	background.color = Color("#261a13")
+	background.mouse_filter = Control.MOUSE_FILTER_STOP
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inventory_page.add_child(background)
+
+	var header := ColorRect.new()
+	header.color = Color("#3b281b")
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inventory_page.add_child(header)
+
+	inventory_back_button = Button.new()
+	inventory_back_button.text = "WRÓĆ"
+	inventory_back_button.focus_mode = Control.FOCUS_NONE
+	inventory_back_button.pressed.connect(_close_inventory)
+	_apply_button_style(inventory_back_button, Color("#a85e30"))
+	inventory_page.add_child(inventory_back_button)
+
+	inventory_title = Label.new()
+	inventory_title.text = "EKWIPUNEK"
+	inventory_title.add_theme_color_override("font_color", Color("#f4cb78"))
+	inventory_title.add_theme_font_size_override("font_size", 32)
+	inventory_page.add_child(inventory_title)
+
+	inventory_count_label = Label.new()
+	inventory_count_label.add_theme_color_override("font_color", Color("#fff3dc"))
+	inventory_count_label.add_theme_font_size_override("font_size", 16)
+	inventory_page.add_child(inventory_count_label)
+
+	inventory_tabs_scroll = ScrollContainer.new()
+	inventory_tabs_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	inventory_tabs_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inventory_page.add_child(inventory_tabs_scroll)
+
+	inventory_tabs_row = HBoxContainer.new()
+	inventory_tabs_row.add_theme_constant_override("separation", 8)
+	inventory_tabs_scroll.add_child(inventory_tabs_row)
+
+	inventory_tab_group = ButtonGroup.new()
+	for category_index in INVENTORY_CATEGORY_NAMES.size():
+		var tab := Button.new()
+		tab.text = INVENTORY_CATEGORY_NAMES[category_index]
+		tab.toggle_mode = true
+		tab.button_group = inventory_tab_group
+		tab.button_pressed = category_index == selected_inventory_category
+		tab.focus_mode = Control.FOCUS_NONE
+		tab.custom_minimum_size = Vector2(96.0, 48.0)
+		tab.pressed.connect(_on_inventory_tab_pressed.bind(category_index))
+		_apply_button_style(tab, Color("#a85e30"))
+		inventory_tab_buttons.append(tab)
+		inventory_tabs_row.add_child(tab)
+
+	inventory_scroll = ScrollContainer.new()
+	inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inventory_page.add_child(inventory_scroll)
+
+	inventory_grid = GridContainer.new()
+	inventory_grid.columns = 4
+	inventory_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_grid.add_theme_constant_override("h_separation", 8)
+	inventory_grid.add_theme_constant_override("v_separation", 12)
+	inventory_scroll.add_child(inventory_grid)
+
+	inventory_empty_label = Label.new()
+	inventory_empty_label.text = "Ekwipunek jest pusty"
+	inventory_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inventory_empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	inventory_empty_label.add_theme_color_override("font_color", Color("#cbb99c"))
+	inventory_empty_label.add_theme_font_size_override("font_size", 22)
+	inventory_page.add_child(inventory_empty_label)
+	_layout_inventory_page()
+	_refresh_inventory_page()
+
+
+func _layout_inventory_page() -> void:
+	if inventory_page == null:
+		return
+	inventory_page.size = size
+	if not inventory_open and not inventory_page.visible:
+		inventory_page.position.x = size.x
+	inventory_back_button.position = Vector2(20.0, 22.0)
+	inventory_back_button.size = Vector2(88.0, 52.0)
+	inventory_title.position = Vector2(126.0, 18.0)
+	inventory_title.size = Vector2(size.x - 146.0, 52.0)
+	inventory_count_label.position = Vector2(126.0, 68.0)
+	inventory_count_label.size = Vector2(size.x - 146.0, 30.0)
+	inventory_tabs_scroll.position = Vector2(18.0, 112.0)
+	inventory_tabs_scroll.size = Vector2(size.x - 36.0, 54.0)
+	inventory_scroll.position = Vector2(20.0, 178.0)
+	inventory_scroll.size = Vector2(size.x - 40.0, size.y - 198.0)
+	inventory_empty_label.position = Vector2(24.0, 240.0)
+	inventory_empty_label.size = Vector2(size.x - 48.0, size.y - 320.0)
+	var header := inventory_page.get_child(1) as ColorRect
+	header.size = Vector2(size.x, 110.0)
+
+
+func _refresh_inventory_page() -> void:
+	if inventory_grid == null:
+		return
+	for child in inventory_grid.get_children():
+		inventory_grid.remove_child(child)
+		child.queue_free()
+	var visible_items: Array[Dictionary] = []
+	var visible_count: int = 0
+	for item: Dictionary in inventory_items:
+		var item_category: int = int(item["category_index"])
+		if selected_inventory_category == 0 or item_category == selected_inventory_category:
+			visible_items.append(item)
+			visible_count += int(item["quantity"])
+	var is_empty: bool = visible_items.is_empty()
+	inventory_empty_label.text = "Ekwipunek jest pusty" if inventory_items.is_empty() else "Brak przedmiotów w tej kategorii"
+	inventory_empty_label.visible = is_empty
+	inventory_scroll.visible = not is_empty
+	inventory_count_label.text = "%d szt." % visible_count
+	for item: Dictionary in visible_items:
+		_add_sword_inventory_card(int(item["sword_index"]), int(item["quantity"]))
+
+
+func _on_inventory_tab_pressed(category_index: int) -> void:
+	selected_inventory_category = category_index
+	_refresh_inventory_page()
+
+
+func _add_inventory_sword(sword_index: int) -> void:
+	var category_index: int = INVENTORY_CATEGORY_NAMES.size() - 1
+	for stack_index in inventory_items.size():
+		var stack: Dictionary = inventory_items[stack_index]
+		if int(stack["sword_index"]) == sword_index and int(stack["category_index"]) == category_index:
+			stack["quantity"] = int(stack["quantity"]) + 1
+			inventory_items[stack_index] = stack
+			_refresh_inventory_page()
+			return
+	inventory_items.append({
+		"sword_index": sword_index,
+		"category_index": category_index,
+		"quantity": 1,
+	})
+	_refresh_inventory_page()
+
+
+func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(112.0, 166.0)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color("#403020")
+	card_style.border_color = Color("#98713b")
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(6)
+	card.add_theme_stylebox_override("panel", card_style)
+	inventory_grid.add_child(card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	card.add_child(margin)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	margin.add_child(column)
+
+	var icon_holder := Control.new()
+	icon_holder.custom_minimum_size = Vector2(92.0, 112.0)
+	icon_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(icon_holder)
+
+	var atlas_texture := AtlasTexture.new()
+	atlas_texture.atlas = sword_atlas
+	atlas_texture.region = SWORD_REGIONS[sword_index]
+	var icon := TextureRect.new()
+	icon.texture = atlas_texture
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.add_child(icon)
+
+	var quantity_badge := PanelContainer.new()
+	quantity_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	quantity_badge.position = Vector2(-34.0, 2.0)
+	quantity_badge.size = Vector2(32.0, 32.0)
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color("#bd4d31")
+	badge_style.border_color = Color("#f3d078")
+	badge_style.set_border_width_all(2)
+	badge_style.set_corner_radius_all(16)
+	quantity_badge.add_theme_stylebox_override("panel", badge_style)
+	icon_holder.add_child(quantity_badge)
+
+	var quantity_label := Label.new()
+	quantity_label.text = str(quantity) if quantity < 100 else "99+"
+	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	quantity_label.add_theme_color_override("font_color", Color("#fff5d9"))
+	quantity_label.add_theme_font_size_override("font_size", 14)
+	quantity_badge.add_child(quantity_label)
+
+	var name_label := Label.new()
+	name_label.text = SWORD_NAMES[sword_index]
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.add_theme_color_override("font_color", Color("#fff0d0"))
+	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.custom_minimum_size = Vector2(96.0, 36.0)
+	name_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(name_label)
+
+
+func _input(event: InputEvent) -> void:
+	if opening_package:
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			swipe_start_position = event.position
+			swipe_tracking = true
+		elif swipe_tracking:
+			_handle_page_swipe(event.position - swipe_start_position)
+			swipe_tracking = false
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			swipe_start_position = event.position
+			swipe_tracking = true
+		elif swipe_tracking:
+			_handle_page_swipe(event.position - swipe_start_position)
+			swipe_tracking = false
+
+
+func _handle_page_swipe(delta: Vector2) -> void:
+	if absf(delta.x) < 85.0 or absf(delta.x) < absf(delta.y) * 1.25:
+		return
+	if inventory_open and swipe_start_position.y >= 108.0 and swipe_start_position.y <= 170.0:
+		return
+	if inventory_open and delta.x > 0.0:
+		_close_inventory()
+	elif not inventory_open and delta.x < 0.0:
+		_open_inventory()
+
+
+func _open_inventory() -> void:
+	if inventory_open or opening_package:
+		return
+	inventory_open = true
+	_refresh_inventory_page()
+	inventory_page.visible = true
+	inventory_page.position = Vector2(size.x, 0.0)
+	if inventory_transition != null:
+		inventory_transition.kill()
+	inventory_transition = create_tween()
+	inventory_transition.set_trans(Tween.TRANS_CUBIC)
+	inventory_transition.set_ease(Tween.EASE_OUT)
+	inventory_transition.tween_property(inventory_page, "position:x", 0.0, 0.32)
+
+
+func _close_inventory() -> void:
+	if not inventory_open:
+		return
+	inventory_open = false
+	if inventory_transition != null:
+		inventory_transition.kill()
+	inventory_transition = create_tween()
+	inventory_transition.set_trans(Tween.TRANS_CUBIC)
+	inventory_transition.set_ease(Tween.EASE_IN)
+	inventory_transition.tween_property(inventory_page, "position:x", size.x, 0.32)
+	inventory_transition.finished.connect(_hide_inventory_page)
+
+
+func _hide_inventory_page() -> void:
+	if not inventory_open:
+		inventory_page.visible = false
+
 func _layout_controls() -> void:
 	_set_reference_rect(status_label, Vector2(14.0, 14.0), Vector2(370.0, 38.0))
 	_set_reference_rect(balance_label, Vector2(412.0, 408.0), Vector2(58.0, 34.0))
 	_set_reference_rect(coin_button, Vector2(402.0, 466.0), Vector2(76.0, 68.0))
+	_layout_inventory_page()
 
 
 func _set_reference_rect(control: Control, reference_position: Vector2, reference_size: Vector2) -> void:
@@ -401,6 +714,7 @@ func _show_contents(_index: int) -> void:
 	await medallion_tween.finished
 
 	var sword_index := _roll_sword_index()
+	_add_inventory_sword(sword_index)
 	var sword_region: Rect2 = SWORD_REGIONS[sword_index]
 	var sword_texture := AtlasTexture.new()
 	sword_texture.atlas = sword_atlas
