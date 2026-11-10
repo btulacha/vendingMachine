@@ -27,6 +27,17 @@ mouse_filter = 2
 texture = ExtResource("1_background")
 expand_mode = 1
 
+[node name="ColorRect" type="ColorRect" parent="." unique_id=292393512]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 0.106000006
+anchor_bottom = 0.062000003
+offset_left = 122.0
+offset_top = 789.0
+offset_right = 348.76
+offset_bottom = 829.48
+color = Color(0, 0, 0, 1)
+
 [node name="TextureRect" type="TextureRect" parent="." unique_id=811922102]
 layout_mode = 0
 offset_left = 63.0

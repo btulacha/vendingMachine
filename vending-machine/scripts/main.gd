@@ -315,7 +315,7 @@ func _on_zoom_view_input(event: InputEvent, index: int) -> void:
 	elif event is InputEventScreenTouch:
 		pressed = event.pressed
 	if pressed:
-		_open_zoomed_package(index)
+		await _open_zoomed_package(index)
 
 
 func _open_zoomed_package(index: int) -> void:
@@ -324,80 +324,98 @@ func _open_zoomed_package(index: int) -> void:
 		prompt_tween.kill()
 	open_prompt.queue_free()
 	zoom_view.queue_free()
-	_show_contents(index)
+	await _show_contents(index)
 
 
-func _show_contents(index: int) -> void:
+func _show_contents(_index: int) -> void:
 	var overlay := ColorRect.new()
-	overlay.color = Color(0.05, 0.025, 0.015, 0.78)
+	overlay.color = Color("#241711")
+	overlay.modulate.a = 0.0
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
+	var circle_center := size * 0.5
+	var expanding_circle := _create_reveal_circle(overlay, Color("#dba640"))
+	expanding_circle.position = circle_center
+	expanding_circle.scale = Vector2(0.001, 0.001)
+	var cover_radius: float = size.length() * 0.55
+	var cover_tween := create_tween()
+	cover_tween.set_parallel(true)
+	cover_tween.tween_property(
+		expanding_circle,
+		"scale",
+		Vector2(cover_radius, cover_radius),
+		0.72
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	cover_tween.tween_property(overlay, "modulate:a", 1.0, 0.42)
+	await cover_tween.finished
 
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(minf(size.x * 0.86, 420.0), 250.0)
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color("#4a2818")
-	panel_style.border_color = Color("#d49a45")
-	panel_style.set_border_width_all(4)
-	panel_style.set_corner_radius_all(10)
-	panel.add_theme_stylebox_override("panel", panel_style)
-	center.add_child(panel)
+	var medallion_border := _create_reveal_circle(overlay, Color("#f5d17a"))
+	medallion_border.position = circle_center
+	medallion_border.scale = Vector2.ZERO
+	var medallion_center := _create_reveal_circle(overlay, Color("#253f48"))
+	medallion_center.position = circle_center
+	medallion_center.scale = Vector2.ZERO
+	var medallion_tween := create_tween()
+	medallion_tween.set_parallel(true)
+	medallion_tween.set_trans(Tween.TRANS_BACK)
+	medallion_tween.set_ease(Tween.EASE_OUT)
+	medallion_tween.tween_property(medallion_border, "scale", Vector2(144.0, 144.0), 0.48)
+	medallion_tween.tween_property(medallion_center, "scale", Vector2(132.0, 132.0), 0.48).set_delay(0.06)
+	await medallion_tween.finished
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	panel.add_child(margin)
+	var sword_index := _roll_sword_index()
+	var sword_region: Rect2 = SWORD_REGIONS[sword_index]
+	var sword_texture := AtlasTexture.new()
+	sword_texture.atlas = sword_atlas
+	sword_texture.region = sword_region
+	var sword_size: Vector2 = sword_region.size * 0.58
+	var sword_icon := TextureRect.new()
+	sword_icon.texture = sword_texture
+	sword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	sword_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sword_icon.size = sword_size
+	sword_icon.pivot_offset = sword_size * 0.5
+	sword_icon.position = circle_center - sword_size * 0.5 + Vector2(0.0, 34.0)
+	sword_icon.rotation = -0.22
+	sword_icon.scale = Vector2(0.25, 0.25)
+	sword_icon.modulate.a = 0.0
+	sword_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(sword_icon)
 
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 20)
-	margin.add_child(column)
+	var reward_label := Label.new()
+	reward_label.text = SWORD_NAMES[sword_index].to_upper()
+	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	reward_label.add_theme_color_override("font_color", Color("#fff2cc"))
+	reward_label.add_theme_font_size_override("font_size", 25)
+	reward_label.position = Vector2(24.0, circle_center.y + 158.0)
+	reward_label.size = Vector2(size.x - 48.0, 44.0)
+	reward_label.modulate.a = 0.0
+	reward_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(reward_label)
 
-	var title := Label.new()
-	title.text = "ZAWARTOŚĆ PACZKI"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", Color("#f4cb78"))
-	title.add_theme_font_size_override("font_size", 20)
-	column.add_child(title)
-
-	var reward_name := str(PACKAGE_INFO[index]["contents"])
-	if index == SWORD_PACKAGE_INDEX and sword_atlas != null:
-		var sword_index := _roll_sword_index()
-		var sword_texture := AtlasTexture.new()
-		sword_texture.atlas = sword_atlas
-		sword_texture.region = SWORD_REGIONS[sword_index]
-
-		var sword_icon := TextureRect.new()
-		sword_icon.texture = sword_texture
-		sword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		sword_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		sword_icon.custom_minimum_size = SWORD_REGIONS[sword_index].size * 0.28
-		sword_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		sword_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(sword_icon)
-		reward_name = SWORD_NAMES[sword_index]
-
-	var contents := Label.new()
-	contents.text = reward_name
-	contents.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	contents.add_theme_color_override("font_color", Color("#fff3dc"))
-	contents.add_theme_font_size_override("font_size", 26)
-	column.add_child(contents)
+	var icon_tween := create_tween()
+	icon_tween.set_parallel(true)
+	icon_tween.set_trans(Tween.TRANS_BACK)
+	icon_tween.set_ease(Tween.EASE_OUT)
+	icon_tween.tween_property(sword_icon, "position", circle_center - sword_size * 0.5, 0.48)
+	icon_tween.tween_property(sword_icon, "scale", Vector2.ONE, 0.48)
+	icon_tween.tween_property(sword_icon, "rotation", 0.0, 0.48)
+	icon_tween.tween_property(sword_icon, "modulate:a", 1.0, 0.3)
+	icon_tween.tween_property(reward_label, "modulate:a", 1.0, 0.35).set_delay(0.2)
+	await icon_tween.finished
 
 	var close_button := Button.new()
 	close_button.text = "ZAMKNIJ"
-	close_button.custom_minimum_size = Vector2(0.0, 52.0)
+	close_button.position = Vector2(size.x * 0.5 - 90.0, size.y - 118.0)
+	close_button.size = Vector2(180.0, 56.0)
 	close_button.focus_mode = Control.FOCUS_NONE
 	_apply_button_style(close_button, Color("#a85e30"))
-	close_button.pressed.connect(_close_contents.bind(overlay))
-	column.add_child(close_button)
+	close_button.pressed.connect(_close_contents.bind(overlay, _index))
+	overlay.add_child(close_button)
 
 
 func _roll_sword_index() -> int:
@@ -410,9 +428,21 @@ func _roll_sword_index() -> int:
 	return SWORD_DROP_WEIGHTS.size() - 1
 
 
-func _close_contents(overlay: ColorRect) -> void:
+func _create_reveal_circle(parent: Node, color: Color) -> Polygon2D:
+	var points := PackedVector2Array()
+	for segment in 128:
+		var angle: float = TAU * float(segment) / 128.0
+		points.append(Vector2(cos(angle), sin(angle)))
+	var circle := Polygon2D.new()
+	circle.polygon = points
+	circle.color = color
+	parent.add_child(circle)
+	return circle
+
+
+func _close_contents(overlay: ColorRect, package_index: int) -> void:
 	overlay.queue_free()
-	var package: RigidBody2D = package_bodies[pending_index]
+	var package: RigidBody2D = package_bodies[package_index]
 	package.visible = false
 	package.input_pickable = false
 	package.collision_layer = 0
