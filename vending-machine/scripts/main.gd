@@ -84,6 +84,7 @@ const PACKAGE_COLLISION_SIZE := Vector2(45.6, 72.0)
 var sword_atlas: Texture2D
 var status_label: Label
 var balance_label: Label
+var coin_icon: TextureRect
 var coin_button: Button
 var tray_pickup_button: Button
 var package_bodies: Array[RigidBody2D] = []
@@ -195,15 +196,25 @@ func _create_interface() -> void:
 	status_label.add_theme_color_override("font_shadow_color", Color("#28150b"))
 	status_label.add_theme_constant_override("shadow_offset_x", 2)
 	status_label.add_theme_constant_override("shadow_offset_y", 2)
-	status_label.add_theme_font_size_override("font_size", 18)
+	status_label.add_theme_font_size_override("font_size", 14)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
+	status_label.visible = false
 
 	balance_label = Label.new()
-	balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	balance_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	balance_label.add_theme_color_override("font_color", Color("#351a0b"))
 	balance_label.add_theme_font_size_override("font_size", 16)
 	add_child(balance_label)
+
+	coin_icon = TextureRect.new()
+	coin_icon.texture = load("res://assets/coin.png") as Texture2D
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(coin_icon)
 
 	coin_button = Button.new()
 	coin_button.text = "WRZUĆ\n1 DUKAT"
@@ -384,31 +395,24 @@ func _save_inventory() -> void:
 
 
 func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
-	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(112.0, 166.0)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color("#403020")
-	card_style.border_color = Color("#98713b")
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(6)
-	card.add_theme_stylebox_override("panel", card_style)
-	inventory_grid.add_child(card)
+	var entry := VBoxContainer.new()
+	entry.custom_minimum_size = Vector2(112.0, 152.0)
+	entry.add_theme_constant_override("separation", 4)
+	inventory_grid.add_child(entry)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	margin.add_child(column)
+	var icon_frame := PanelContainer.new()
+	icon_frame.custom_minimum_size = Vector2(112.0, 112.0)
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = Color("#403020")
+	frame_style.border_color = Color("#98713b")
+	frame_style.set_border_width_all(2)
+	frame_style.set_corner_radius_all(4)
+	icon_frame.add_theme_stylebox_override("panel", frame_style)
+	entry.add_child(icon_frame)
 
 	var icon_holder := Control.new()
-	icon_holder.custom_minimum_size = Vector2(92.0, 112.0)
-	icon_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(icon_holder)
+	icon_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon_frame.add_child(icon_holder)
 
 	var atlas_texture := AtlasTexture.new()
 	atlas_texture.atlas = sword_atlas
@@ -448,10 +452,10 @@ func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.add_theme_color_override("font_color", Color("#fff0d0"))
-	name_label.add_theme_font_size_override("font_size", 17)
-	name_label.custom_minimum_size = Vector2(96.0, 36.0)
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.custom_minimum_size = Vector2(112.0, 36.0)
 	name_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(name_label)
+	entry.add_child(name_label)
 
 
 func _input(event: InputEvent) -> void:
@@ -517,8 +521,9 @@ func _hide_inventory_page() -> void:
 		inventory_page.visible = false
 
 func _layout_controls() -> void:
-	_set_reference_rect(status_label, Vector2(14.0, 14.0), Vector2(370.0, 38.0))
-	_set_reference_rect(balance_label, Vector2(412.0, 408.0), Vector2(58.0, 34.0))
+	_set_reference_rect(status_label, Vector2(14.0, 12.0), Vector2(200.0, 62.0))
+	_set_reference_rect(balance_label, Vector2(138.0, 24.0), Vector2(58.0, 36.0))
+	_set_reference_rect(coin_icon, Vector2(104.0, 29.0), Vector2(26.0, 26.0))
 	_set_reference_rect(coin_button, Vector2(402.0, 466.0), Vector2(76.0, 68.0))
 	_layout_inventory_page()
 
@@ -817,7 +822,7 @@ func _close_contents(overlay: ColorRect, package_index: int) -> void:
 
 
 func _update_hud() -> void:
-	balance_label.text = "%d/%d" % [coins_inserted, PRICE]
+	balance_label.text = str(coins_inserted)
 	coin_button.disabled = selected_index < 0 or delivering or pending_index >= 0
 	tray_pickup_button.visible = pending_index >= 0 and not delivering and not opening_package
 	for index in package_bodies.size():
