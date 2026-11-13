@@ -37,7 +37,7 @@ offset_left = 122.0
 offset_top = 789.0
 offset_right = 348.76
 offset_bottom = 829.48
-color = Color(0, 0, 0, 1)
+color = Color(0.204, 0.110, 0.110, 1)
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=811922102]
 layout_mode = 0
@@ -99,6 +99,15 @@ offset_bottom = 991.0
 mouse_filter = 2
 texture = ExtResource("5_o6xl0")
 expand_mode = 1
+
+[node name="PlayerHudBackground" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 88.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.204, 0.110, 0.110, 1)
 
 [node name="PlayerPortrait" type="TextureRect" parent="."]
 offset_left = 14.0

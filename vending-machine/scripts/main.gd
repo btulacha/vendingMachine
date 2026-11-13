@@ -2,6 +2,11 @@ extends Control
 
 const InventoryStorage = preload("res://scripts/inventory_storage.gd")
 const PRICE: int = 2
+const COLOR_ICY_AQUA := Color("#ADFCF9")
+const COLOR_MUTED_TEAL := Color("#89A894")
+const COLOR_HUNTER_GREEN := Color("#4B644A")
+const COLOR_DEEP_MOCHA := Color("#49393B")
+const COLOR_DARK_COFFEE := Color("#341C1C")
 const DESIGN_SIZE := Vector2(540.0, 960.0)
 const PACKAGE_TEXTURES: Array[Texture2D] = [
 	preload("res://assets/package_armor.png"),
@@ -192,8 +197,8 @@ func _create_packages() -> void:
 
 func _create_interface() -> void:
 	status_label = Label.new()
-	status_label.add_theme_color_override("font_color", Color("#fff0c9"))
-	status_label.add_theme_color_override("font_shadow_color", Color("#28150b"))
+	status_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
+	status_label.add_theme_color_override("font_shadow_color", COLOR_DARK_COFFEE)
 	status_label.add_theme_constant_override("shadow_offset_x", 2)
 	status_label.add_theme_constant_override("shadow_offset_y", 2)
 	status_label.add_theme_font_size_override("font_size", 14)
@@ -204,7 +209,7 @@ func _create_interface() -> void:
 	balance_label = Label.new()
 	balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	balance_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	balance_label.add_theme_color_override("font_color", Color("#351a0b"))
+	balance_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	balance_label.add_theme_font_size_override("font_size", 16)
 	add_child(balance_label)
 
@@ -221,7 +226,7 @@ func _create_interface() -> void:
 	coin_button.focus_mode = Control.FOCUS_NONE
 	coin_button.add_theme_font_size_override("font_size", 13)
 	coin_button.pressed.connect(_on_coin_pressed)
-	_apply_button_style(coin_button, Color("#c78a35"))
+	_apply_button_style(coin_button, COLOR_HUNTER_GREEN)
 	add_child(coin_button)
 
 	tray_pickup_button = Button.new()
@@ -247,13 +252,13 @@ func _create_inventory_page() -> void:
 	add_child(inventory_page)
 
 	var background := ColorRect.new()
-	background.color = Color("#261a13")
+	background.color = COLOR_DARK_COFFEE
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inventory_page.add_child(background)
 
 	var header := ColorRect.new()
-	header.color = Color("#3b281b")
+	header.color = COLOR_DEEP_MOCHA
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inventory_page.add_child(header)
 
@@ -261,17 +266,17 @@ func _create_inventory_page() -> void:
 	inventory_back_button.text = "WRÓĆ"
 	inventory_back_button.focus_mode = Control.FOCUS_NONE
 	inventory_back_button.pressed.connect(_close_inventory)
-	_apply_button_style(inventory_back_button, Color("#a85e30"))
+	_apply_button_style(inventory_back_button, COLOR_HUNTER_GREEN)
 	inventory_page.add_child(inventory_back_button)
 
 	inventory_title = Label.new()
 	inventory_title.text = "EKWIPUNEK"
-	inventory_title.add_theme_color_override("font_color", Color("#f4cb78"))
+	inventory_title.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	inventory_title.add_theme_font_size_override("font_size", 32)
 	inventory_page.add_child(inventory_title)
 
 	inventory_count_label = Label.new()
-	inventory_count_label.add_theme_color_override("font_color", Color("#fff3dc"))
+	inventory_count_label.add_theme_color_override("font_color", COLOR_MUTED_TEAL)
 	inventory_count_label.add_theme_font_size_override("font_size", 16)
 	inventory_page.add_child(inventory_count_label)
 
@@ -294,7 +299,7 @@ func _create_inventory_page() -> void:
 		tab.focus_mode = Control.FOCUS_NONE
 		tab.custom_minimum_size = Vector2(96.0, 48.0)
 		tab.pressed.connect(_on_inventory_tab_pressed.bind(category_index))
-		_apply_button_style(tab, Color("#a85e30"))
+		_apply_button_style(tab, COLOR_HUNTER_GREEN)
 		inventory_tab_buttons.append(tab)
 		inventory_tabs_row.add_child(tab)
 
@@ -313,7 +318,7 @@ func _create_inventory_page() -> void:
 	inventory_empty_label.text = "Ekwipunek jest pusty"
 	inventory_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	inventory_empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	inventory_empty_label.add_theme_color_override("font_color", Color("#cbb99c"))
+	inventory_empty_label.add_theme_color_override("font_color", COLOR_MUTED_TEAL)
 	inventory_empty_label.add_theme_font_size_override("font_size", 22)
 	inventory_page.add_child(inventory_empty_label)
 	_layout_inventory_page()
@@ -403,8 +408,8 @@ func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
 	var icon_frame := PanelContainer.new()
 	icon_frame.custom_minimum_size = Vector2(112.0, 112.0)
 	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = Color("#403020")
-	frame_style.border_color = Color("#98713b")
+	frame_style.bg_color = COLOR_DEEP_MOCHA
+	frame_style.border_color = COLOR_MUTED_TEAL
 	frame_style.set_border_width_all(2)
 	frame_style.set_corner_radius_all(4)
 	icon_frame.add_theme_stylebox_override("panel", frame_style)
@@ -431,8 +436,8 @@ func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
 	quantity_badge.position = Vector2(-34.0, 2.0)
 	quantity_badge.size = Vector2(32.0, 32.0)
 	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = Color("#bd4d31")
-	badge_style.border_color = Color("#f3d078")
+	badge_style.bg_color = COLOR_HUNTER_GREEN
+	badge_style.border_color = COLOR_ICY_AQUA
 	badge_style.set_border_width_all(2)
 	badge_style.set_corner_radius_all(16)
 	quantity_badge.add_theme_stylebox_override("panel", badge_style)
@@ -442,7 +447,7 @@ func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
 	quantity_label.text = str(quantity) if quantity < 100 else "99+"
 	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	quantity_label.add_theme_color_override("font_color", Color("#fff5d9"))
+	quantity_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	quantity_label.add_theme_font_size_override("font_size", 14)
 	quantity_badge.add_child(quantity_label)
 
@@ -451,7 +456,7 @@ func _add_sword_inventory_card(sword_index: int, quantity: int) -> void:
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.add_theme_color_override("font_color", Color("#fff0d0"))
+	name_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.custom_minimum_size = Vector2(112.0, 36.0)
 	name_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -656,8 +661,8 @@ func _zoom_package_to_front(index: int) -> void:
 	open_prompt.position = Vector2(target_position.x, target_position.y + target_size.y + 16.0)
 	open_prompt.size = Vector2(target_size.x, 52.0)
 	open_prompt.mouse_filter = Control.MOUSE_FILTER_STOP
-	open_prompt.add_theme_color_override("font_color", Color("#ffe29a"))
-	open_prompt.add_theme_color_override("font_shadow_color", Color("#35170b"))
+	open_prompt.add_theme_color_override("font_color", COLOR_ICY_AQUA)
+	open_prompt.add_theme_color_override("font_shadow_color", COLOR_DARK_COFFEE)
 	open_prompt.add_theme_constant_override("shadow_offset_x", 2)
 	open_prompt.add_theme_constant_override("shadow_offset_y", 2)
 	open_prompt.add_theme_font_size_override("font_size", 28)
@@ -694,14 +699,14 @@ func _open_zoomed_package(index: int) -> void:
 
 func _show_contents(_index: int) -> void:
 	var overlay := ColorRect.new()
-	overlay.color = Color("#241711")
+	overlay.color = COLOR_DARK_COFFEE
 	overlay.modulate.a = 0.0
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 
 	var circle_center := size * 0.5
-	var expanding_circle := _create_reveal_circle(overlay, Color("#dba640"))
+	var expanding_circle := _create_reveal_circle(overlay, COLOR_MUTED_TEAL)
 	expanding_circle.position = circle_center
 	expanding_circle.scale = Vector2(0.001, 0.001)
 	var cover_radius: float = size.length() * 0.55
@@ -716,10 +721,10 @@ func _show_contents(_index: int) -> void:
 	cover_tween.tween_property(overlay, "modulate:a", 1.0, 0.42)
 	await cover_tween.finished
 
-	var medallion_border := _create_reveal_circle(overlay, Color("#f5d17a"))
+	var medallion_border := _create_reveal_circle(overlay, COLOR_ICY_AQUA)
 	medallion_border.position = circle_center
 	medallion_border.scale = Vector2.ZERO
-	var medallion_center := _create_reveal_circle(overlay, Color("#253f48"))
+	var medallion_center := _create_reveal_circle(overlay, COLOR_HUNTER_GREEN)
 	medallion_center.position = circle_center
 	medallion_center.scale = Vector2.ZERO
 	var medallion_tween := create_tween()
@@ -755,7 +760,7 @@ func _show_contents(_index: int) -> void:
 	reward_label.text = SWORD_NAMES[sword_index].to_upper()
 	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	reward_label.add_theme_color_override("font_color", Color("#fff2cc"))
+	reward_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	reward_label.add_theme_font_size_override("font_size", 25)
 	reward_label.position = Vector2(24.0, circle_center.y + 158.0)
 	reward_label.size = Vector2(size.x - 48.0, 44.0)
@@ -779,7 +784,7 @@ func _show_contents(_index: int) -> void:
 	close_button.position = Vector2(size.x * 0.5 - 90.0, size.y - 118.0)
 	close_button.size = Vector2(180.0, 56.0)
 	close_button.focus_mode = Control.FOCUS_NONE
-	_apply_button_style(close_button, Color("#a85e30"))
+	_apply_button_style(close_button, COLOR_HUNTER_GREEN)
 	close_button.pressed.connect(_close_contents.bind(overlay, _index))
 	overlay.add_child(close_button)
 
@@ -826,7 +831,7 @@ func _update_hud() -> void:
 	coin_button.disabled = selected_index < 0 or delivering or pending_index >= 0
 	tray_pickup_button.visible = pending_index >= 0 and not delivering and not opening_package
 	for index in package_bodies.size():
-		package_bodies[index].modulate = Color("#ffd98c") if index == selected_index else Color.WHITE
+		package_bodies[index].modulate = COLOR_ICY_AQUA if index == selected_index else Color.WHITE
 
 	if delivering:
 		status_label.text = "Paczka w drodze do podajnika"
@@ -843,10 +848,10 @@ func _update_hud() -> void:
 func _apply_button_style(button: Button, color: Color) -> void:
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = color
-	normal.border_color = Color("#432315")
+	normal.border_color = COLOR_DEEP_MOCHA
 	normal.set_border_width_all(3)
 	normal.set_corner_radius_all(8)
-	normal.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	normal.shadow_color = Color(0.204, 0.110, 0.110, 0.45)
 	normal.shadow_size = 3
 	button.add_theme_stylebox_override("normal", normal)
 
@@ -859,7 +864,7 @@ func _apply_button_style(button: Button, color: Color) -> void:
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", normal)
 	button.add_theme_stylebox_override("disabled", normal)
-	button.add_theme_color_override("font_color", Color("#fff1d2"))
-	button.add_theme_color_override("font_hover_color", Color("#ffffff"))
-	button.add_theme_color_override("font_pressed_color", Color("#f8dfb2"))
-	button.add_theme_color_override("font_disabled_color", Color("#9a816c"))
+	button.add_theme_color_override("font_color", COLOR_ICY_AQUA)
+	button.add_theme_color_override("font_hover_color", COLOR_ICY_AQUA)
+	button.add_theme_color_override("font_pressed_color", COLOR_MUTED_TEAL)
+	button.add_theme_color_override("font_disabled_color", COLOR_MUTED_TEAL)
