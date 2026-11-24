@@ -2,6 +2,7 @@ extends Control
 
 const InventoryStorage = preload("res://scripts/inventory_storage.gd")
 const PRICE: int = 2
+const PACKAGE_ITEM_COUNT: int = 3
 const INVENTORY_CAPACITY: int = 1000
 const COLOR_ICY_AQUA := Color("#ADFCF9")
 const COLOR_MUTED_TEAL := Color("#89A894")
@@ -734,58 +735,81 @@ func _show_contents(_index: int) -> void:
 	medallion_tween.tween_property(medallion_center, "scale", Vector2(132.0, 132.0), 0.48).set_delay(0.06)
 	await medallion_tween.finished
 
-	var sword_index := _roll_sword_index()
-	var item_added: bool = _add_inventory_sword(sword_index)
-	var sword_region: Rect2 = SWORD_REGIONS[sword_index]
-	var sword_texture := AtlasTexture.new()
-	sword_texture.atlas = sword_atlas
-	sword_texture.region = sword_region
-	var sword_size: Vector2 = sword_region.size * 0.58
+	var reward_textures: Array[AtlasTexture] = []
+	var reward_sizes: Array[Vector2] = []
+	var reward_names: Array[String] = []
+	for _item_index in PACKAGE_ITEM_COUNT:
+		var sword_index := _roll_sword_index()
+		var item_added: bool = _add_inventory_sword(sword_index)
+		var sword_region: Rect2 = SWORD_REGIONS[sword_index]
+		var sword_texture := AtlasTexture.new()
+		sword_texture.atlas = sword_atlas
+		sword_texture.region = sword_region
+		var icon_scale: float = 0.58
+		reward_textures.append(sword_texture)
+		reward_sizes.append(sword_region.size * icon_scale)
+		var reward_name: String = SWORD_NAMES[sword_index].to_upper()
+		if not item_added:
+			reward_name += " - BRAK MIEJSCA"
+		reward_names.append(reward_name)
+
 	var sword_icon := TextureRect.new()
-	sword_icon.texture = sword_texture
 	sword_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	sword_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	sword_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sword_icon.size = sword_size
-	sword_icon.pivot_offset = sword_size * 0.5
-	sword_icon.position = circle_center - sword_size * 0.5 + Vector2(0.0, 34.0)
-	sword_icon.rotation = -0.22
-	sword_icon.scale = Vector2(0.25, 0.25)
-	sword_icon.modulate.a = 0.0
 	sword_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(sword_icon)
 
 	var reward_label := Label.new()
-	reward_label.text = SWORD_NAMES[sword_index].to_upper() if item_added else "EKWIPUNEK PEŁNY"
 	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
 	reward_label.add_theme_font_size_override("font_size", 25)
 	reward_label.position = Vector2(24.0, circle_center.y + 158.0)
 	reward_label.size = Vector2(size.x - 48.0, 44.0)
-	reward_label.modulate.a = 0.0
 	reward_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(reward_label)
 
-	var icon_tween := create_tween()
-	icon_tween.set_parallel(true)
-	icon_tween.set_trans(Tween.TRANS_BACK)
-	icon_tween.set_ease(Tween.EASE_OUT)
-	icon_tween.tween_property(sword_icon, "position", circle_center - sword_size * 0.5, 0.48)
-	icon_tween.tween_property(sword_icon, "scale", Vector2.ONE, 0.48)
-	icon_tween.tween_property(sword_icon, "rotation", 0.0, 0.48)
-	icon_tween.tween_property(sword_icon, "modulate:a", 1.0, 0.3)
-	icon_tween.tween_property(reward_label, "modulate:a", 1.0, 0.35).set_delay(0.2)
-	await icon_tween.finished
+	var reveal_button := Button.new()
+	reveal_button.position = Vector2(size.x * 0.5 - 90.0, size.y - 118.0)
+	reveal_button.size = Vector2(180.0, 56.0)
+	reveal_button.focus_mode = Control.FOCUS_NONE
+	reveal_button.disabled = true
+	_apply_button_style(reveal_button, COLOR_HUNTER_GREEN)
+	overlay.add_child(reveal_button)
 
-	var close_button := Button.new()
-	close_button.text = "ZAMKNIJ"
-	close_button.position = Vector2(size.x * 0.5 - 90.0, size.y - 118.0)
-	close_button.size = Vector2(180.0, 56.0)
-	close_button.focus_mode = Control.FOCUS_NONE
-	_apply_button_style(close_button, COLOR_HUNTER_GREEN)
-	close_button.pressed.connect(_close_contents.bind(overlay, _index))
-	overlay.add_child(close_button)
+	for item_index in PACKAGE_ITEM_COUNT:
+		var sword_size: Vector2 = reward_sizes[item_index]
+		var icon_target_position: Vector2 = circle_center - sword_size * 0.5
+		sword_icon.texture = reward_textures[item_index]
+		sword_icon.size = sword_size
+		sword_icon.pivot_offset = sword_size * 0.5
+		sword_icon.position = icon_target_position + Vector2(0.0, 34.0)
+		sword_icon.scale = Vector2(0.25, 0.25)
+		sword_icon.modulate.a = 0.0
+		reward_label.text = reward_names[item_index]
+		reward_label.modulate.a = 0.0
+		if item_index == PACKAGE_ITEM_COUNT - 1:
+			reveal_button.text = "ZAMKNIJ"
+		else:
+			reveal_button.text = "DALEJ (%d/%d)" % [item_index + 1, PACKAGE_ITEM_COUNT]
+
+		var icon_tween := create_tween()
+		icon_tween.set_parallel(true)
+		icon_tween.set_trans(Tween.TRANS_BACK)
+		icon_tween.set_ease(Tween.EASE_OUT)
+		icon_tween.tween_property(sword_icon, "position", icon_target_position, 0.48)
+		icon_tween.tween_property(sword_icon, "scale", Vector2.ONE, 0.48)
+		icon_tween.tween_property(sword_icon, "modulate:a", 1.0, 0.3)
+		icon_tween.tween_property(reward_label, "modulate:a", 1.0, 0.35).set_delay(0.2)
+		await icon_tween.finished
+
+		reveal_button.disabled = false
+		await reveal_button.pressed
+		if item_index == PACKAGE_ITEM_COUNT - 1:
+			_close_contents(overlay, _index)
+			return
+		reveal_button.disabled = true
 
 
 func _roll_sword_index() -> int:
