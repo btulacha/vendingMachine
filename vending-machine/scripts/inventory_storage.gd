@@ -4,6 +4,7 @@ const SAVE_PATH: String = "user://inventory.cfg"
 const SAVE_VERSION: int = 1
 const CATEGORY_COUNT: int = 9
 const SWORD_COUNT: int = 10
+const MAX_ITEMS: int = 1000
 
 
 func load_inventory() -> Array[Dictionary]:
@@ -20,6 +21,7 @@ func load_inventory() -> Array[Dictionary]:
 		return []
 
 	var inventory: Array[Dictionary] = []
+	var remaining_items: int = MAX_ITEMS
 	for saved_item: Variant in saved_items:
 		if typeof(saved_item) != TYPE_DICTIONARY:
 			continue
@@ -30,6 +32,10 @@ func load_inventory() -> Array[Dictionary]:
 			continue
 		if category_index < 0 or category_index >= CATEGORY_COUNT or quantity <= 0:
 			continue
+		if remaining_items <= 0:
+			break
+		quantity = mini(quantity, remaining_items)
+		remaining_items -= quantity
 		inventory.append({
 			"sword_index": sword_index,
 			"category_index": category_index,

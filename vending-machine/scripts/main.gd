@@ -2,6 +2,7 @@ extends Control
 
 const InventoryStorage = preload("res://scripts/inventory_storage.gd")
 const PRICE: int = 2
+const INVENTORY_CAPACITY: int = 1000
 const COLOR_ICY_AQUA := Color("#ADFCF9")
 const COLOR_MUTED_TEAL := Color("#89A894")
 const COLOR_HUNTER_GREEN := Color("#4B644A")
@@ -105,7 +106,6 @@ var open_prompt: Label
 var prompt_tween: Tween
 var inventory_storage
 var inventory_page: Control
-var inventory_back_button: Button
 var inventory_title: Label
 var inventory_count_label: Label
 var inventory_empty_label: Label
@@ -262,13 +262,6 @@ func _create_inventory_page() -> void:
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inventory_page.add_child(header)
 
-	inventory_back_button = Button.new()
-	inventory_back_button.text = "WRÓĆ"
-	inventory_back_button.focus_mode = Control.FOCUS_NONE
-	inventory_back_button.pressed.connect(_close_inventory)
-	_apply_button_style(inventory_back_button, COLOR_HUNTER_GREEN)
-	inventory_page.add_child(inventory_back_button)
-
 	inventory_title = Label.new()
 	inventory_title.text = "EKWIPUNEK"
 	inventory_title.add_theme_color_override("font_color", COLOR_ICY_AQUA)
@@ -277,7 +270,7 @@ func _create_inventory_page() -> void:
 
 	inventory_count_label = Label.new()
 	inventory_count_label.add_theme_color_override("font_color", COLOR_MUTED_TEAL)
-	inventory_count_label.add_theme_font_size_override("font_size", 16)
+	inventory_count_label.add_theme_font_size_override("font_size", 18)
 	inventory_page.add_child(inventory_count_label)
 
 	inventory_tabs_scroll = ScrollContainer.new()
@@ -331,20 +324,18 @@ func _layout_inventory_page() -> void:
 	inventory_page.size = size
 	if not inventory_open and not inventory_page.visible:
 		inventory_page.position.x = size.x
-	inventory_back_button.position = Vector2(20.0, 22.0)
-	inventory_back_button.size = Vector2(88.0, 52.0)
-	inventory_title.position = Vector2(126.0, 18.0)
-	inventory_title.size = Vector2(size.x - 146.0, 52.0)
-	inventory_count_label.position = Vector2(126.0, 68.0)
-	inventory_count_label.size = Vector2(size.x - 146.0, 30.0)
-	inventory_tabs_scroll.position = Vector2(18.0, 112.0)
+	inventory_title.position = Vector2(18.0, 6.0)
+	inventory_title.size = Vector2(280.0, 46.0)
+	inventory_count_label.position = Vector2(300.0, 8.0)
+	inventory_count_label.size = Vector2(size.x - 320.0, 42.0)
+	inventory_tabs_scroll.position = Vector2(18.0, 68.0)
 	inventory_tabs_scroll.size = Vector2(size.x - 36.0, 54.0)
-	inventory_scroll.position = Vector2(20.0, 178.0)
-	inventory_scroll.size = Vector2(size.x - 40.0, size.y - 198.0)
+	inventory_scroll.position = Vector2(20.0, 134.0)
+	inventory_scroll.size = Vector2(size.x - 40.0, size.y - 154.0)
 	inventory_empty_label.position = Vector2(24.0, 240.0)
 	inventory_empty_label.size = Vector2(size.x - 48.0, size.y - 320.0)
 	var header := inventory_page.get_child(1) as ColorRect
-	header.size = Vector2(size.x, 110.0)
+	header.size = Vector2(size.x, 58.0)
 
 
 func _refresh_inventory_page() -> void:
@@ -354,17 +345,15 @@ func _refresh_inventory_page() -> void:
 		inventory_grid.remove_child(child)
 		child.queue_free()
 	var visible_items: Array[Dictionary] = []
-	var visible_count: int = 0
 	for item: Dictionary in inventory_items:
 		var item_category: int = int(item["category_index"])
 		if selected_inventory_category == 0 or item_category == selected_inventory_category:
 			visible_items.append(item)
-			visible_count += int(item["quantity"])
 	var is_empty: bool = visible_items.is_empty()
 	inventory_empty_label.text = "Ekwipunek jest pusty" if inventory_items.is_empty() else "Brak przedmiotów w tej kategorii"
 	inventory_empty_label.visible = is_empty
 	inventory_scroll.visible = not is_empty
-	inventory_count_label.text = "%d szt." % visible_count
+	inventory_count_label.text = "%d/%d" % [_inventory_item_count(), INVENTORY_CAPACITY]
 	for item: Dictionary in visible_items:
 		_add_sword_inventory_card(int(item["sword_index"]), int(item["quantity"]))
 
@@ -374,7 +363,16 @@ func _on_inventory_tab_pressed(category_index: int) -> void:
 	_refresh_inventory_page()
 
 
-func _add_inventory_sword(sword_index: int) -> void:
+func _inventory_item_count() -> int:
+	var total: int = 0
+	for item: Dictionary in inventory_items:
+		total += int(item["quantity"])
+	return total
+
+
+func _add_inventory_sword(sword_index: int) -> bool:
+	if _inventory_item_count() >= INVENTORY_CAPACITY:
+		return false
 	var category_index: int = INVENTORY_CATEGORY_NAMES.size() - 1
 	for stack_index in inventory_items.size():
 		var stack: Dictionary = inventory_items[stack_index]
@@ -383,7 +381,7 @@ func _add_inventory_sword(sword_index: int) -> void:
 			inventory_items[stack_index] = stack
 			_save_inventory()
 			_refresh_inventory_page()
-			return
+			return true
 	inventory_items.append({
 		"sword_index": sword_index,
 		"category_index": category_index,
@@ -391,6 +389,7 @@ func _add_inventory_sword(sword_index: int) -> void:
 	})
 	_save_inventory()
 	_refresh_inventory_page()
+	return true
 
 
 func _save_inventory() -> void:
@@ -736,7 +735,7 @@ func _show_contents(_index: int) -> void:
 	await medallion_tween.finished
 
 	var sword_index := _roll_sword_index()
-	_add_inventory_sword(sword_index)
+	var item_added: bool = _add_inventory_sword(sword_index)
 	var sword_region: Rect2 = SWORD_REGIONS[sword_index]
 	var sword_texture := AtlasTexture.new()
 	sword_texture.atlas = sword_atlas
@@ -757,7 +756,7 @@ func _show_contents(_index: int) -> void:
 	overlay.add_child(sword_icon)
 
 	var reward_label := Label.new()
-	reward_label.text = SWORD_NAMES[sword_index].to_upper()
+	reward_label.text = SWORD_NAMES[sword_index].to_upper() if item_added else "EKWIPUNEK PEŁNY"
 	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_label.add_theme_color_override("font_color", COLOR_ICY_AQUA)
